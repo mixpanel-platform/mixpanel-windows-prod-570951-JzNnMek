@@ -1,15 +1,76 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8">
     <link rel="stylesheet" type="text/css" href="https://cdn.mxpnl.com/libs/mixpanel-platform/css/reset.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.mxpnl.com/libs/mixpanel-platform/build/mixpanel-platform.v0.latest.min.css">
     <script src="https://cdn.mxpnl.com/libs/mixpanel-platform/build/mixpanel-platform.v0.latest.min.js"></script>
   </head>
   <body class="mixpanel-platform-body">
-    <h1>Hello, World!</h1>
+    <div class="mixpanel-platform-section">
+      <!--<div id="eventSelect" style="float: left;"></div>-->
+      <div id="by" class="mixpanel-platform-label" style="margin-left: 10px; display: none;">by</div>
+      
+      <div class="finish_rate" style="
+        font-size: 30px;
+        line-height: 30px; font-weight: 500; text-shadow: 0 1px 0 #fff; color: #5c617b; 
+        display: block; vertical-align: top;
+        text-align: center;
+      ">Sum of Event</div>
+      <div id="eventSelect" style="float: left;"></div>
+      <div id="dateSelect" style="float: right;"></div>
+      <div style="clear: both;"></div>
+      <div id="graph"></div>
+    </div>
+    <div id="table"></div>
     <script>
-      // Run queries and display results here
+      MP.api.ready(runReport);
+      function runReport() {
+        var eventSelector = $('#eventSelect').MPEventSelect();
+        var propSelector  = $('#propSelect').MPPropertySelect();
+        var dateSelector  = $('#dateSelect').MPDatepicker();
+        var eventGraph    = $('#graph').MPChart({chartType: 'line'});
+        var eventTable    = $('#table').MPTable({
+          showPercentages: true,
+          firstColHeader: 'Event'
+        });
+        var selectedEvent;
+
+        function runQuery() {
+          var dateRange  = dateSelector.MPDatepicker('value');
+          var chartData = {};
+          chartData[selectedEvent] = {};
+          
+          MP.api.segment(selectedEvent, undefined, dateRange).done(function(results) {
+            // Need a sorted date Array in order to calculate a rolling sum
+            var dateSeries = generateSortedDateSeries(results.json[selectedEvent]);
+
+            calculateSums(chartData, dateSeries, results);
+            eventGraph.MPChart('setData', chartData);
+          });
+
+          function generateSortedDateSeries(dateCollection) {
+            var series = [];
+            for (key in dateCollection) {
+              series.push(key);
+            }
+            return series.sort();
+          }
+
+          function calculateSums(data, dateSeries, apiResults) {
+            var sum = 0;
+            dateSeries.forEach(function(date) {
+              sum = sum + apiResults.json[selectedEvent][date];
+              chartData[selectedEvent][date] = sum;
+            });
+          }
+        }
+        
+        eventSelector.on('change', function(e, selectedEventName) {
+          selectedEvent = selectedEventName;
+          runQuery();
+        });
+        dateSelector.on('change', runQuery);
+      }
     </script>
   </body>
 </html>
